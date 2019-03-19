@@ -19,8 +19,15 @@ func (u *user) changeEmail(email string) {
 func main() {
 	u := user{"thinking", "thinking_fioa@163.com"}
 
+	/**
+	u := user {
+		name: "thinking",
+		email: "thinking_fioa@163.com"
+	}
+	*/
+
 	u.notify()
-	u.changeEmail("thinkingfioa@163.com")
+	u.changeEmail("thinking@163.com")
 	u.notify()
 
 	uPoint := &user{"triple3P", "triple3P@163.com"}
