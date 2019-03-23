@@ -452,6 +452,162 @@ Go语言中的引用类型有如下几个：切片、映射、通道、接口和
 
 如果使用值接收者来实现一个接口，那么那个类型的值和指针都能赋值给对应的接口。如果使用指针接收者实现一个接口，那么只能指向那个类型的指针才能赋值给对应的接口。如有不懂，可参考listing36.go和listing36P.go帮助理解
 
+### 5.5 嵌入类型
+Go语言允许用户扩展或修改已有类型的行为，这对于代码复用很有好处。这个功能是通过嵌入类型实现的。**嵌入类型是将已有的类型直接声明在新的结构类型里**。
+
+通过嵌入类型，与内部类型相关的标识符会提升到外部类型上。这些被提升的标识符就像直接声明在外部类型里的标识符一样，也是外部类型的一部分。这样外部类型就组合了内部类型包含的所有属性，并且可以添加新的字段和方法。外部类型可通过声明与内部类型标识符同名的标识符来覆盖内部标识符的字段或方法。
+
+```
+type notifier interface {
+	notify()
+}
+
+type user struct {
+	name  string
+	email string
+}
+
+func (u user) notify() {
+	fmt.Printf("name %s, email %s\n", u.name, u.email)
+}
+
+type admin struct {
+	user
+	password string
+}
+
+func main() {
+
+	ad := admin{
+		user: user{
+			name:  "thinking_fioa",
+			email: "thinking_fioa@163.com",
+		},
+		password: "123456",
+	}
+	// 可以直接访问内部类型的方法
+	ad.user.notify()
+	// 内部类型的方法也被提升到外部类型中
+	ad.notify()
+}
+```
+注：
+
+1. 要嵌入一个类型，只需要声明这个类型的名字就可以了
+2. 通过嵌入类型，与内部类型相关的标识符(包括属性和方法)会提升到外部类型上
+3. 通过内部类型的名字可以访问内部类型的值
+4. 由于内部类型相关的标识符被提升到外部类型上，也可以直接通过外部类型访问
+5. 内部类型的提升，内部类型实现的接口会自动提升到外部类型。外部类型(admin)也实现了接口(notifier)
+
+外部类型可通过声明与内部类型标识符同名的标识符来覆盖内部标识符的字段或方法。亦可实现对应的接口
+
+```
+type notifier interface {
+	notify()
+}
+
+type user struct {
+	name  string
+	email string
+}
+
+func (u user) notify() {
+	fmt.Printf("name is %s, email is %s\n", u.name, u.email)
+}
+
+type admin struct {
+	user
+	password string
+}
+
+func (ad admin) notify() {
+	fmt.Printf("name is %s, email is %s, passwd is %s\n", ad.name, ad.email, ad.password)
+}
+
+func main() {
+	ad := admin{
+		user: user{
+			name:  "thinking",
+			email: "thinking_fioa@163.com",
+		},
+		password: "123456",
+	}
+
+	sendNotification(ad.user)
+	sendNotification(ad)
+}
+
+func sendNotification(n notifier) {
+	n.notify()
+}
+```
+注：
+
+1. 由于内部类型的提升，内部类型实现的接口会自动提升到外部类型。这就意味着由于内部类型的实现，外部类型也同样实现了这个接口
+2. 如果外部类型覆盖内部标识符的方法，则内部类型的实现将不会被提升。不过内部类型的值一直存在，可通过内部类型的值来调用内部实现的方法。
+
+### 5.6 公开或未公开的标识符
+Go语言支持从包里公开或者隐藏标识符。当一个标识符的名字以小写字母开头时，表示这个标识符未公开，即包外的代码不可见。如果一个标识符以大写字母开头，表示该标识符是公开的，包外的代码可见。通常将代码所在的文件夹名作为包名
+
+```
+package counters
+type alertCounter int
+
+
+func New(value int) alertCounter {
+	return alertCounter(value)
+}
+```
+```
+import (
+	"./counters"
+	"fmt"
+)
+
+func main() {
+	counter := counters.New(1)
+	fmt.Printf("count %d", counter)
+}
+```
+注：
+
+1. 将工厂函数命名为New是Go语言的一个习惯
+2. New函数返回了一个未公开的alertCount类型的值。原因有两个，第一，标识符才有公开或者未公开，值永远没有。第二，短变量声明操作符，有能力捕获引用的类型，并创建一个未公开的的类型变量。
+
+```
+package entities
+
+type user struct {
+	Name  string
+	Email string
+}
+
+type Admin struct {
+	user
+	Passwd string
+}
+```
+```
+import (
+	"./entities"
+	"fmt"
+)
+
+func main() {
+
+	ad := entities.Admin{
+		Passwd: "123456",
+	}
+	ad.Name = "thinking"
+	ad.Email = "thinking_fiao@163.com"
+
+	fmt.Printf("name %s, email %s, passwd %s", ad.Name, ad.Email, ad.Passwd)
+}
+``` 
+注：
+
+1. 内部类型user未公开，无法直接通过结构字面量的方式初始化内部类型
+2. 内部类型的标识符全部被提升至外部类型，所以这些公开的字段(Name、Email)可通过外部类型的值直接来访问
 
 
 

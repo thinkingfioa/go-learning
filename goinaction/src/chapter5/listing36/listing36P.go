@@ -21,9 +21,9 @@ func main() {
 		name:  "thinking",
 		email: "thinking_fioa@163.com",
 	}
-
+	// 值不可以
 	sendNotificationPoint(uPointer)
-
+	// 指针可以
 	sendNotificationPoint(&uPointer)
 }
 
