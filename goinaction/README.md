@@ -609,6 +609,207 @@ func main() {
 1. 内部类型user未公开，无法直接通过结构字面量的方式初始化内部类型
 2. 内部类型的标识符全部被提升至外部类型，所以这些公开的字段(Name、Email)可通过外部类型的值直接来访问
 
+## 第6章 并发
+Go语言里的并发指的是能让某个函数独立于其他函数运行的能力。当一个函数创建为goroutine时，Go会将其视为独立的工作单元。
+
+Go语言的并发同步模型来自一个叫作通信顺序进程(CSP)。CSP是一种消息传递模型，在goroutine之间传递数据来传递消息，而不是对数据进行加锁来实现同步。
+
+### 6.1 并发和并行
+操作系统会在物理处理器上调度线程来执行，而Go语言的运行会在逻辑处理器上调度goroutine来运行。在1.5版本后，Go语言的运行默认会在每个可用的物理处理器分配一个逻辑处理器。
+
+如果创建一个goroutine并准备运行，这个goroutine会被放到调度器的全局运行队列中。之后，调度器就将队列中的goroutine分配一个逻辑处理器，并放到这个逻辑处理器对应的本地运行队列中，如下图6-2
+![](./pictures/6-2.png)
+
+1. 如果正在运行的goroutine需要执行一个阻塞的系统调用，当前逻辑处理器绑定的线程和goroutine会从逻辑处理器分离，调度器会创建一个新的线程，并将其绑定到逻辑处理器上，如上图线程M3。一旦被阻塞的系统调用执行完并返回，对应的goroutine会放回本地运行队列中
+2. 如果一个goroutine需要做一个网络I/O调用，流程上有些不同。该goroutine会和逻辑处理器分离，并移到集成了网络轮询器的运行。
+
+### 6.2 goroutine
+下面是一段代码，有两个goroutine匿名函数，同时逻辑处理器的数量设置为2（runtime.GOMAXPROCS(2))
+
+```
+func main() {
+	runtime.GOMAXPROCS(2)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	fmt.Println("start program")
+	go func() {
+		defer wg.Done()
+		for count := 0; count < 3; count++ {
+			for char := 'a'; char < 'a'+26; char++ {
+				fmt.Printf("%c ", char)
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		for count := 0; count < 3; count++ {
+			for char := 'A'; char < 'A'+26; char++ {
+				fmt.Printf("%c ", char)
+			}
+		}
+	}()
+
+	wg.Wait()
+	fmt.Println("Finisg")
+}
+```
+
+1. runtime.GOMAXPROCS(2) ----- 设置逻辑处理器数目为2
+2. 大写字母和小写字母间隔输出，且每次运行结果都不相同
+
+### 6.3 竞争状态
+竞争状态：两个或多个gorotine在没有相互同步的情况下，访问某个共享的资源，并试图同时读和写这个资源。典型的int非线程安全，多gorotine访问需要保护操作。
+
+```
+var (
+	count int
+	wg    sync.WaitGroup
+)
+
+func main() {
+	wg.Add(2)
+	go addCount()
+	go addCount()
+
+	wg.Wait()
+	fmt.Printf("count %d", count)
+
+}
+
+func addCount() {
+	defer wg.Done()
+	for i := 0; i < 10000; i++ {
+		if i == 500 {
+			// 当前的gorotine从线程退出，并放回本地运行队列
+			runtime.Gosched()
+		}
+		count++
+	}
+}
+```
+
+1. runtime.Gosched() ----- 将从当前线程退出，给其他gorotine运行机会
+2. count的类型是int，非线程安全
+3. go build -race ----- 检查代码中的竞争状态(上面例子未检查出来，我也很奇怪？)
+
+### 6.4 锁住共享资源
+Go语言提供了传统的同步gorotine的机制，就是对共享资源加锁，类似于其他语言。atomic和sync包里的函数提供了很好的解决方案
+
+#### 6.4.1 原子函数
+##### 使用 atomic包中的AddInt64函数
+
+```
+var (
+	count int64
+	wg    sync.WaitGroup
+)
+
+func main() {
+	wg.Add(2)
+
+	go addCount(10000)
+	go addCount(10000)
+
+	wg.Wait()
+
+	fmt.Printf("count %d", count)
+}
+
+func addCount(loopNum int) {
+	defer wg.Done()
+
+	for i := 0; i < loopNum; i++ {
+		//count++
+		atomic.AddInt64(&count, 1)
+	}
+}
+```
+注：
+使用原子方法:atomic.AddInt64(&count, 1)，来保证线程安全
+
+##### 使用原子函数LoadInt64和StoreInt64
+原子函数LoadInt64和StoreInt64提供了一种安全地读和写一个整型值的方式
+
+```
+var (
+	shutdown int64
+	wg       sync.WaitGroup
+)
+
+func main() {
+	wg.Add(2)
+
+	go doWork("A")
+	go doWork("B")
+
+	time.Sleep(10 * time.Second)
+	atomic.StoreInt64(&shutdown, 1)
+	wg.Wait()
+	fmt.Println("Finish")
+}
+
+func doWork(name string) {
+	defer wg.Done()
+
+	for {
+		fmt.Printf("output %s\n", name)
+		time.Sleep(250 * time.Millisecond)
+
+		if atomic.LoadInt64(&shutdown) == 1 {
+			fmt.Printf("%s shutdown.\n", name)
+			break
+		}
+	}
+}
+```
+
+1. 原子函数LoadInt64和StoreInt64保证了变量shutdown同步和可见性
+2. time.Sleep(1 * time.Second) ----- gorotine暂停1秒
+
+#### 6.4.2 互斥锁(mutex)
+另一种同步访问共享资源的方式是使用互斥锁(mutex)。互斥锁用于在代码上创建一个临界区，保证同一时间只有一个gorotine可以执行这个临界区代码。使用mutex.Lock()和mutex.Unlock()声明一段代码是临界区
+
+```
+var (
+	count int64
+	wg    sync.WaitGroup
+	mutex sync.Mutex
+)
+
+func main() {
+
+	wg.Add(2)
+
+	go addCount(10000)
+	go addCount(10000)
+
+	wg.Wait()
+	fmt.Printf("count %d\n", count)
+}
+
+func addCount(loopNum int) {
+	defer wg.Done()
+
+	for i := 0; i < loopNum; i++ {
+		mutex.Lock()
+		count++
+		mutex.Unlock()
+	}
+}
+```
+
+### 6.5 通道
+
+
+
+
+
+
+
 
 
 
