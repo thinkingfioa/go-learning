@@ -662,7 +662,7 @@ func main() {
 2. 大写字母和小写字母间隔输出，且每次运行结果都不相同
 
 ### 6.3 竞争状态
-竞争状态：两个或多个gorotine在没有相互同步的情况下，访问某个共享的资源，并试图同时读和写这个资源。典型的int非线程安全，多gorotine访问需要保护操作。
+竞争状态：两个或多个gorotine在没有相互同步的情况下，访问某个共享的资源，并试图同时读和写这个资源。int类型是非线程安全，在多gorotine访问时需要保护操作。下面代码就存在竞争状态
 
 ```
 var (
@@ -692,9 +692,10 @@ func addCount() {
 }
 ```
 
-1. runtime.Gosched() ----- 将从当前线程退出，给其他gorotine运行机会
-2. count的类型是int，非线程安全
-3. go build -race ----- 检查代码中的竞争状态(上面例子未检查出来，我也很奇怪？)
+1. 代码输出与预期不符
+2. runtime.Gosched() ----- 将从当前线程退出，给其他gorotine运行机会
+3. count的类型是int，非线程安全
+4. go build -race ----- 检查代码中的竞争状态(上面例子未检查出来，我也很奇怪？)
 
 ### 6.4 锁住共享资源
 Go语言提供了传统的同步gorotine的机制，就是对共享资源加锁，类似于其他语言。atomic和sync包里的函数提供了很好的解决方案
@@ -771,7 +772,7 @@ func doWork(name string) {
 2. time.Sleep(1 * time.Second) ----- gorotine暂停1秒
 
 #### 6.4.2 互斥锁(mutex)
-另一种同步访问共享资源的方式是使用互斥锁(mutex)。互斥锁用于在代码上创建一个临界区，保证同一时间只有一个gorotine可以执行这个临界区代码。使用mutex.Lock()和mutex.Unlock()声明一段代码是临界区
+另一种同步访问共享资源的方式是使用互斥锁(mutex)。互斥锁用于在代码上创建一个临界区，保证同一时间只有一个goroutine可以执行这个临界区代码。使用mutex.Lock()和mutex.Unlock()声明一段代码是临界区
 
 ```
 var (
@@ -803,7 +804,124 @@ func addCount(loopNum int) {
 ```
 
 ### 6.5 通道
+Go语言不仅提供了**原子函数和互斥锁**来保证对共享资源的安全访问以及消除竞争状态，还可以使用**通道**，通过发送和接收需要共享的资源
 
+Go语言使用内置函数make来创建一个通道。通道有两种类型，一个是无缓冲的通道，一个是有缓冲的通道
+
+1. unbuffered := make(chan int) ----- 无缓冲通道，第一个参数是关键字chan，之后跟着允许通道交换的数据类型
+2. buffered := make(chan string, 10) ----- 有缓冲通道，第一个参数是关键字chan，之后跟着允许通道交换的数据类型，第二参数是缓冲大小
+3. buffered <- "thinking" ----- 通过通道发送一个字符串
+4. value := <- buffered ----- 从通道接收一个字符串
+
+#### 6.5.1 无缓冲的通道
+无缓冲的通道是指在接收前没有能力保存任何值的通道。通道要求发送gorotine和接收gorotine同时准备好，才能完成发送和接收操作，否则将一直阻塞等待。
+
+无缓冲的通道操作是一个阻塞操作，数据没有被成功接收，发送gorotine将一直阻塞。
+
+```
+var wg sync.WaitGroup
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+func main() {
+	court := make(chan int)
+
+	wg.Add(2)
+
+	go player("thinking", court)
+	go player("ppp", court)
+
+	court <- 1
+
+	wg.Wait()
+}
+
+func player(name string, court chan int) {
+
+	defer wg.Done()
+	for {
+
+		ball, ok := <-court
+		if !ok {
+			fmt.Printf("Player %s Won\n", name)
+			return
+		}
+
+		n := rand.Intn(100)
+		if n%13 == 0 {
+			fmt.Printf("Player %s Missed\n", name)
+			close(court)
+			return
+		}
+
+		fmt.Printf("Player %s Hit %d\n", name, ball)
+		ball++
+
+		court <- ball
+	}
+}
+```
+
+#### 6.5.2 有缓冲的通道
+有缓冲的通道是一种在被接收前能存储一个或多个值的通道。只有在通道中没有要接收的值时，接收动作才会阻塞。只有在通道没有可用缓冲区容纳被发送的值时，发送动作才会阻塞。有点类似于Java语言中的LinkedBlockingQueue
+
+```
+const (
+	numberWorker = 4
+	taskNum      = 10
+)
+
+var wg sync.WaitGroup
+
+func init() {
+	rand.Seed(time.Now().Unix())
+}
+
+func main() {
+	wg.Add(numberWorker)
+
+	tasks := make(chan string, taskNum)
+
+	// 启动${numberWorker}个goroutine
+	for gr := 1; gr <= numberWorker; gr++ {
+		go worker(tasks, gr)
+	}
+	// 提交任务
+	for post := 1; post <= taskNum; post++ {
+		tasks <- fmt.Sprintf("Task : %d", post)
+	}
+	// 关闭通道
+	close(tasks)
+	wg.Wait()
+}
+
+func worker(tasks chan string, work int) {
+	defer wg.Done()
+
+	for {
+		// 获取任务
+		task, ok := <-tasks
+		if !ok {
+			fmt.Printf("Worker: %d : Shutting Down\n", work)
+			return
+		}
+
+		fmt.Printf("Worker: %d : Started %s\n", work, task)
+
+		sleep := rand.Int63n(100)
+		time.Sleep(time.Duration(sleep) * time.Millisecond)
+
+		fmt.Printf("Worker: %d : Completed %s\n", work, task)
+	}
+}
+```
+
+1. close(tasks) ----- 关闭通道。当通道关闭时，goroutine依旧可以从通道接收数据，但是不能再向通道里发送数据。从一个已经关闭且没有数据的通道里获取数据，总会立刻返回，并返回一个通道类型的零值
+2. const (......) ----- 常量的定义
+
+## 第7章 并发模式
 
 
 
