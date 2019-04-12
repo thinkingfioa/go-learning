@@ -1009,10 +1009,40 @@ func (r *Runner) gotInterrupt() bool {
 main.go
 
 ```
+const timeout = 3 * time.Second
+
+func main() {
+	log.Printf("Starting work.")
+
+	r := runner.New(timeout)
+
+	r.Add(createTask(), createTask(), createTask())
+
+	if err := r.Start(); err != nil {
+		switch err {
+		case runner.ErrTimeout:
+			log.Println("Terminating due to timeout.")
+			os.Exit(1)
+		case runner.ErrInterrupt:
+			log.Println("Terminating due to interrupt.")
+			os.Exit(2)
+		}
+	}
+}
+
+func createTask() func(int) {
+	return func(id int) {
+		log.Printf("Processor - Task #%d.", id)
+		time.Sleep(time.Duration(id) * time.Second)
+	}
+}
 ```
 
 #### 7.1.1 代码解释
 
+1. New(...)函数 ----- Go语言中工厂函数通常称为New函数，函数接收一个time.Duration类型的值，并返回Runner类型的指针。
+2. compete被初始化为无缓冲的通道。设计成无缓冲的通道是因为向这个通道发送一个error类型的值或者nil值，之后就会等待main函数接收这个值。
+3. select语句的经典用法。goInterrupt(...)函数展示了select语句的经典用法。select语句在没有任何要接收的数据时会阻塞，但是如果有default分支就不会阻塞了。如：Start函数中的select语句就会阻塞，直到接收到值
 
 
 

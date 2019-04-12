@@ -39,7 +39,6 @@ func (r *Runner) Add(tasks ...func(int)) {
 }
 
 func (r *Runner) Start() error {
-	//
 	signal.Notify(r.interrupt, os.Interrupt)
 
 	go func() {
