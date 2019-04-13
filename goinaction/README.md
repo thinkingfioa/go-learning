@@ -1192,7 +1192,58 @@ func performQueries(query int, p *pool.Pool) {
 1. Release(...)方法和Close(...)方法必须要代码同步。防止资源已经关闭，仍发送数据。
 2. Acquire(...)方法 ----- 还有可用资源时会从资源池里返回一个资源，否则调用factory字段的函数类型创建一个新的资源。
 
+### 7.3 work
+work包的目的是展示如何使用无缓冲的通道来创建一个goroutine池，多个goroutine执行并控制一组工作，让其并发执行。
 
+使用无缓冲的通道要比随意指定一个缓冲区大小的有缓冲的通道好，因为这个情况下既不需要一个工作队列，也不需要一组goroutine配合执行。
+
+work.go代码如下：
+
+```
+type Worker interface {
+	Task()
+}
+
+type Pool struct {
+	work chan Worker
+	wg   sync.WaitGroup
+}
+
+func New(maxGoroutine int) *Pool {
+	p := Pool{
+		work: make(chan Worker),
+	}
+
+	p.wg.Add(maxGoroutine)
+
+	for i := 0; i < maxGoroutine; i++ {
+		go func() {
+			for w := range p.work {
+				w.Task()
+			}
+			// goroutine结束
+			p.wg.Done()
+		}()
+	}
+
+	return &p
+}
+
+func (p *Pool) Run(w Worker) {
+	p.work <- w
+}
+
+func (p *Pool) Shutdown() {
+	close(p.work)
+	// 等待所有的goroutine终止
+	p.wg.Wait()
+}
+```
+
+#### 7.3.1 代码解释
+
+1. Work.go中New(...)函数 ----- 使用固定数量的goroutine来创建一个工作池
+2. wg sync.WaitGroup参数用来控制Shutdown()函数，保证所有的goroutine截止，才函数退出
 
 
 
