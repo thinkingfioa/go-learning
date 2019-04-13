@@ -1044,6 +1044,156 @@ func createTask() func(int) {
 2. compete被初始化为无缓冲的通道。设计成无缓冲的通道是因为向这个通道发送一个error类型的值或者nil值，之后就会等待main函数接收这个值。
 3. select语句的经典用法。goInterrupt(...)函数展示了select语句的经典用法。select语句在没有任何要接收的数据时会阻塞，但是如果有default分支就不会阻塞了。如：Start函数中的select语句就会阻塞，直到接收到值
 
+### 7.2 pool
+pool包展示如何使用有缓冲的通道实现资源池，来管理可以在任意数量的goroutine之间共享及独立使用的资源。
+
+当资源池资源不够时，创建新的资源分配，如下factory字段是一个函数类型，可以用该函数创建新的资源
+
+pool.go代码如下：
+
+```
+type Pool struct {
+	m sync.Mutex
+
+	//有缓冲的通道资源池
+	resources chan io.Closer
+	factory   func() (io.Closer, error)
+	closed    bool
+}
+
+var ErrPoolClosed = errors.New("Pool has been closed.")
+
+func New(fn func() (io.Closer, error), size uint) (*Pool, error) {
+	if size <= 0 {
+		return nil, errors.New("size value is wrong")
+	}
+
+	return &Pool{
+		resources: make(chan io.Closer, size),
+		factory:   fn,
+	}, nil
+}
+
+func (p *Pool) Acquire() (io.Closer, error) {
+	select {
+	case r, ok := <-p.resources:
+		log.Printf("Acquire:", "New Resource")
+		if !ok {
+			return nil, ErrPoolClosed
+		}
+		return r, nil
+	default:
+		return p.factory()
+	}
+}
+
+func (p *Pool) Release(r io.Closer) {
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	if p.closed {
+		r.Close()
+		return
+	}
+
+	select {
+	case p.resources <- r:
+		log.Printf("Release:", "In Queue")
+	default:
+		log.Println("Release:", "Closing")
+		r.Close()
+	}
+}
+
+func (p *Pool) Close() {
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	if p.closed {
+		return
+	}
+
+	p.closed = true
+
+	// 在清空通道里的资源之前，将通道关闭，如果不这样做，会发生死锁
+	close(p.resources)
+
+	for r := range p.resources {
+		r.Close()
+	}
+
+}
+```
+
+main.go代码
+
+```
+const (
+	maxGoroutines   = 25
+	pooledResources = 2
+)
+
+type dbConnection struct {
+	ID int32
+}
+
+func (dbConn *dbConnection) Close() error {
+	log.Println("Close: Connection", dbConn.ID)
+	return nil
+}
+
+var idCounter int32
+
+func createConnection() (io.Closer, error) {
+	id := atomic.AddInt32(&idCounter, 1)
+	log.Println("Create: New Connection", id)
+
+	return &dbConnection{id}, nil
+}
+
+func main() {
+	var wg sync.WaitGroup
+	wg.Add(maxGoroutines)
+
+	p, err := pool.New(createConnection, pooledResources)
+	if err != nil {
+		log.Println(err)
+	}
+
+	for query := 0; query < maxGoroutines; query++ {
+		go func(q int) {
+			performQueries(q, p)
+			wg.Done()
+		}(query)
+	}
+
+	wg.Wait()
+
+	log.Println("Shutdown Program.")
+	p.Close()
+}
+
+func performQueries(query int, p *pool.Pool) {
+	conn, err := p.Acquire()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	defer p.Release(conn)
+
+	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+	log.Printf("Query: QID[%d] CID[%d]\n", query, conn.(*dbConnection).ID)
+}
+```
+
+#### 7.2.1 代码解释
+
+1. Release(...)方法和Close(...)方法必须要代码同步。防止资源已经关闭，仍发送数据。
+2. Acquire(...)方法 ----- 还有可用资源时会从资源池里返回一个资源，否则调用factory字段的函数类型创建一个新的资源。
+
+
+
 
 
 
