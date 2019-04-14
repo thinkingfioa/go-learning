@@ -1340,7 +1340,81 @@ func main() {
 3. Warning ------ os.Stdout 标准输出
 4. Error ----- 写到文件errors.txt中和标准错误(os.Stderr)
 
+### 8.3 编码／解码
+Go语言标准库里名为xml和json的包，可以帮助程序处理XML或者JSON数据格式。JSON远比XML流行
 
+#### 8.3.1 解码 JSON
+使用json包的NewDecoder函数以及Decode方法进行解码
+
+1. json.NewDecoder(io.Reader).Decoder(&jsonStruct) ----- 输入流作为参数，解码
+2. json.Unmarshal([] byte(contentStr), &jsonStruct) ----- 以string形式作为参数，解码
+
+```
+type Contact struct {
+	Name    string `json:"name"`
+	Title   string `json:"title"`
+	Contact struct {
+		Age int    `json:"age"`
+		Tel string `json:"tel"`
+	}
+}
+
+var contentStr = `{
+	"name": "thinkingfioa",
+	"title": "Go-In-Action",
+	"contact": {
+		"age":25,
+		"tel":"13738142759"
+	}
+}`
+
+func main() {
+   // 使用Map类型, var c map[string] interface {}
+	var c Contact
+	err := json.Unmarshal([]byte(contentStr), &c)
+
+	if err != nil {
+		log.Println("Json Decoder fail")
+		return
+	}
+
+	fmt.Println(c)
+}
+```
+注: 
+
+1. `json:"name"` 称之为标签(tag)，提供每个字段的元信息将JSON文档和结构类型里的字段一一映射起来。如果不存在标签，编码和解码过程会试图以大小写无关的方式，直接使用字段的名字进行匹配。
+2. 上面代码，可以使用通用的Map类型帮助解码，无需对应的类型。 var c map[string] interface{}
+
+#### 8.3.2 编码 JSON
+
+1. json.MarshalIndent(c, "", "    ") ----- 返回一个带有缩进格式的JSON字符串
+2. json.Marshal(c) ----- 无缩进格式的字符串
+
+```
+func main() {
+	c := make(map[string]interface{})
+
+	c["name"] = "thinkingfioa"
+	c["title"] = "Go-In-Action"
+	c["contact"] = map[string]interface{}{
+		"age": 15,
+		"tel": "13838383838",
+	}
+
+	//data, err := json.MarshalIndent(c, "", "    ")
+	data, err := json.Marshal(c)
+
+	if err != nil {
+		log.Println("Json Encoder fail.")
+		return
+	}
+
+	fmt.Println(string(data))
+}
+```
+
+### 8.4 输入和输出
 
 
 
