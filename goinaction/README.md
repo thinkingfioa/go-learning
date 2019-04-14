@@ -23,10 +23,7 @@ Go语言的出现，实则为并发而出现的语言也不过为。Java语言�
 项目中源码基本原型来自于《Go语言实战》书本中。书本源码情参考[地址](https://github.com/goinaction/code)
 
 ## 第2章 快速开始一个Go程序
-
-### 2.1 项目总结 
-
-### 2.2 技术总结
+程序从不同的数据源拉取数据，将数据内容与一组所有项做对比，然后将匹配的内容显示在终端窗口。代码适合方便初学者学习。[代码地址](https://github.com/thinkingfioa/go-learning/tree/master/goinaction/src/chapter2/sample)
 
 ## 第3章 打包和工具链
 
@@ -1244,6 +1241,107 @@ func (p *Pool) Shutdown() {
 
 1. Work.go中New(...)函数 ----- 使用固定数量的goroutine来创建一个工作池
 2. wg sync.WaitGroup参数用来控制Shutdown()函数，保证所有的goroutine截止，才函数退出
+
+
+## 第8章 标准库
+
+### 8.1 文档与源代码
+[官方文档地址](https://golang.org/pkg),国内可能打不开
+
+归档文件：作为Go发布包的一部分，标准库的源代码是经过预编译的，这些预编译后的文件，称为归档文件
+
+### 8.2 记录日志
+日志是所有程序必不可少的一部分，Go语言标准库提供了log包。
+
+```
+func init() {
+	log.SetPrefix("TRICE: ")
+	log.SetFlags(log.Ldate | log.Lmicroseconds | log.Llongfile)
+}
+
+func main() {
+	// Println写到标准日志记录器
+	log.Println("message")
+
+	// Fatalln调用Println()函数后，调用os.Exit(1)。所以下面代码不会执行
+	log.Fatalf("fatal message")
+
+	// Panicln调用Println()函数后，调用panic()
+	log.Panicln("panic message")
+}
+```
+注：
+
+1. init()函数 ----- 这个函数会在运行main()之前作为初始化程序的一部分
+2. log.Fatalf(...)函数 ----- 先调用Println()函数，然后调用os.Exit(1)方法，程序退出
+3. log.Panicln(...)函数 ----- 先调用Println()函数，然后调用panic()，除非程序执行recover函数，否则会导致程序打印调用栈后终止
+
+#### 8.2.1 标准库log.go解释
+给出标准库log.go中多个日志参数和输出样例
+
+1. Ldate ----- 日期，输出格式: 2019/04/15
+2. Ltime ----- 时间，输出格式: 11:50:32
+3. Lmicroseconds ----- 毫秒级时间，输出格式: 11:50:32.456
+4. Llongfile ----- 日志输出代码完整路径，输出格式: filePkgPath/main.go:32
+5. Lshortfile ----- 最终的文件名元素和行号，输出格式: main.go:32
+6. LstdFlags ----- 标准日志记录器的初始值，Ldate|Ltime
+
+```
+const (
+	Ldate         = 1 << iota  // 1 <<0 = 000000001 = 1 
+	Ltime                      // 1 <<1 = 000000010 = 2   
+	Lmicroseconds              // 1 <<2 = 000000100 = 4
+	Llongfile                  // 1 <<3 = 000001000 = 8
+	Lshortfile                 // 1 <<4 = 000010000 = 16
+	...
+	LstdFlags     = Ldate | Ltime 
+)
+```
+注：关键字iota在常量声明区里有特殊的作用，这个关键字让编译器为每个常量复制相同的表达式，直到声明区结束，或者遇到一个新的赋值语句。另一个功能是，初始值为0，之后iota的值在每次处理为常量，一次加1。
+
+#### 8.2.2 定制的日志记录器
+日志是项目比不可少的，使用标准库的Log包，可参考下列代码使用日志
+
+```
+var (
+	Trace   *log.Logger
+	Info    *log.Logger
+	Warning *log.Logger
+	Error   *log.Logger
+)
+
+func init() {
+	file, err := os.OpenFile("errors.txt",
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalln("failed to open error log file:", err)
+	}
+
+	Trace = log.New(ioutil.Discard, "TRACE: ", log.Ldate|log.Lmicroseconds|log.Llongfile)
+
+	Info = log.New(os.Stdout, "INFO: ", log.Ldate|log.Lmicroseconds|log.Lshortfile)
+
+	Warning = log.New(os.Stdout, "WARNING: ", log.Ldate|log.Lmicroseconds|log.Lshortfile)
+
+	Error = log.New(io.MultiWriter(file, os.Stderr), "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+}
+
+func main() {
+	Trace.Println("I have something standard to say")
+	Info.Println("Special Information")
+	Warning.Println("There is something you need to know about")
+	Error.Println("Something has failed")
+}
+```
+注：
+
+1. Trace ----- Discard变量禁用这个等级的日志，相当于忽略
+2. Info ----- os.Stdout 标准输出
+3. Warning ------ os.Stdout 标准输出
+4. Error ----- 写到文件errors.txt中和标准错误(os.Stderr)
+
+
+
 
 
 
