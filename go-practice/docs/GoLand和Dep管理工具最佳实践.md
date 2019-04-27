@@ -42,14 +42,14 @@ GOGCCFLAGS="-fPIC -m64 -pthread -fno-caret-diagnostics -Qunused-arguments -fmess
 ```
 
 ## 1. GOROOT 
-golang的安装目录，Go语言提供的底层库通过GOROOT环境变量中
+golang的安装目录，Go语言提供的底层库通过GOROOT环境变量查找
 
 ## 2. GOPATH 
 可以理解为Go语言的工作目录。鄙人使用GoLand编辑器，我一般喜欢通过GoLand配置，只配置Project GOPATH。可以将Project GOPATH配置成当前目录。
 ![](../pictures/docs/GoLand_GOPATH.png)
 
 ## Dep 工具使用
-dep目前仍热没有Java中maven好用，勉强可用于Go语言的依赖管理工具。dep与godep不是一个东西，dep是官方版本.
+dep目前仍然没有Java中maven好用，勉强可用于Go语言的依赖管理工具。dep与godep不是一个东西，dep是官方版本.
 
 ### 1. 查看版本
 dep version ----- 查看dep工具版本和build日期等.
@@ -111,7 +111,7 @@ dep status ----- 列出应用程序中使用的版本和开发人员发布的最
 
 
 ### 第四步
-通过GoLand的Terminal控制台，进入到src/${ProjectName}下，调用dep init，生成项目依赖文件。则大功告成。
+通过GoLand的Terminal控制台，进入到src/${ProjectName}下，调用dep init，生成项目依赖文件Gopkg.lock、Gopkg.toml和vendor目录。则大功告成。
 
 ## 参考
 
