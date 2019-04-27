@@ -11,8 +11,8 @@ GitHub地址: https://github.com/thinkingfioa/go-learning
 ```
 
 ## TODO 
-1. 补充创建GO 项目方式
-2. 学习cache2go项目代码
+- 学习cache2go项目代码
+- nio方式Go语言Socket数据传输
 
 ## 项目结构介绍
 |序号|名称|说明|
@@ -27,20 +27,22 @@ GitHub地址: https://github.com/thinkingfioa/go-learning
 专栏博客地址
 
 |序号|名称|
-|:---:|:---:|
-|1|[《Go 语言实战》专栏 (一) ——— 初识Go语言](https://blog.csdn.net/thinking_fioa/article/details/89289675)|
-|2|[《Go 语言实战》专栏 (二) ——— 数组、切片和映射](https://blog.csdn.net/thinking_fioa/article/details/89289737)|
-|3|[《Go 语言实战》专栏 (三) ——— Go语言的类型系统](https://blog.csdn.net/thinking_fioa/article/details/89289876)|
-|4|[《Go 语言实战》专栏 (四) ——— 并发和并发模式](https://blog.csdn.net/thinking_fioa/article/details/89289980)|
+|:---:|:---|
+|1|[Go专栏 (一) ——— 初识Go语言](https://blog.csdn.net/thinking_fioa/article/details/89289675)|
+|1|[Go专栏 (二) ——— 初识Go语言](https://blog.csdn.net/thinking_fioa/article/details/89605937)|
+|2|[Go专栏 (三) ——— 数组、切片和映射](https://blog.csdn.net/thinking_fioa/article/details/89289737)|
+|3|[Go专栏 (四) ——— Go语言的类型系统](https://blog.csdn.net/thinking_fioa/article/details/89289876)|
+|4|[Go专栏 (五) ——— 并发和并发模式](https://blog.csdn.net/thinking_fioa/article/details/89289980)|
 
 ## 二、go-practice介绍
-go-practice项目中有多个小而精的例子，适合初学者学习Go语言，提高Go编程水平。go-practice项目是官方依赖管理工具dep构建而成。
+go-practice目标是提供多个用Go语言实现的短小精悍的程序，方便初学者学习Go语言和了解Go语言的诸多特性，同时也多有一定开发经验的同学也有较大的益处。go-practice项目是官方依赖管理工具dep构建而成。
 
-子项目介绍如下，[详细解释请阅读go-practice项目](https://github.com/thinkingfioa/go-learning/tree/master/go-practice)
+子项目介绍如下，[详细解释请阅读go-practice项目介绍](https://github.com/thinkingfioa/go-learning/tree/master/go-practice)
 
 |序号|名称|介绍|
 |:---:|:---:|:---:|
 |1|concurrentcache|并发安全的Go语言cache|
+|2|go-socket-nio|nio方式实现Socket数据传输|
 
 
 ## 参考
