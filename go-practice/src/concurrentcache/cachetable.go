@@ -39,19 +39,42 @@ func (table *CacheTable) SetDeletedCallBack(f func(item *CacheItem)) {
 }
 
 // 添加缓存
-func (table *CacheTable) Add(key interface{}, value interface{}, lifeSpan time.Duration) {
+func (table *CacheTable) Add(key interface{}, value interface{}, lifeSpan time.Duration) *CacheItem {
 	item := NewCacheItem(key, value, lifeSpan)
-	table.Lock()
-	defer table.Unlock()
 
+	table.Lock()
 	table.addItem(item)
+
+	return item
 }
 
 // 获取值
-func (table *CacheTable) Value(key interface{}) {
+func (table *CacheTable) Value(key interface{}) (*CacheItem, error) {
+	table.RLock()
+	value, ok := table.items[key]
+	table.RUnlock()
 
+	if ok {
+		value.KeepAlive()
+		return value, nil
+	}
+	// 返回未找到Key
+	return nil, ErrKeyNotFound
 }
 
+// 调用addItem方法，必须先将table锁住，运行回调函数时解锁
 func (table *CacheTable) addItem(item *CacheItem) {
+	table.items[item.key] = item
+	expireDuration := table.cleanupInterval
+	addedCallBack := table.addedCallBack
+	table.Unlock()
 
+	// 回调函数调用
+	if addedCallBack != nil {
+		addedCallBack(item)
+	}
+
+	if item.lifeSpan > 0 && (expireDuration == 0 || item.lifeSpan < expireDuration) {
+		// TODO 补充过期检查
+	}
 }
