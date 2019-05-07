@@ -23,7 +23,7 @@ type CacheItem struct {
 }
 
 // 创建一个CacheItem变量，返回指针
-func New(key interface{}, value interface{}, leftSpan time.Duration) *CacheItem {
+func NewCacheItem(key interface{}, value interface{}, leftSpan time.Duration) *CacheItem {
 	t := time.Now()
 	return &CacheItem{
 		key:             key,
