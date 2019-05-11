@@ -49,7 +49,7 @@ init函数在程序执行开始的时候被调用。所有被编译器发现的i
 go fmt用户格式化Go语言代码。GoLand工具可以在Go文件保存之前自动格式化，配置方式: Tools -> File Watchers -> go fmt
 
 ##### 3.5.2 Go语言依赖管理工具
-dep依赖管理工具学习，dep是官方版本。如果向系统学习dep依赖管理工具如何使用，请[参考博客]()
+dep依赖管理工具学习，dep是官方版本。如果向系统学习dep依赖管理工具如何使用，请[参考博客](https://blog.csdn.net/thinking_fioa/article/details/89605937)
 
 ## 第4章 数组、切片和映射
 Go语言有3种数据结构来管理集合：数组、切片和映射
