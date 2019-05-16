@@ -1,7 +1,9 @@
 package concurrentcache
 
 import (
+	"fmt"
 	"sync"
+	"text/tabwriter"
 	"time"
 )
 
@@ -13,9 +15,9 @@ type CacheTable struct {
 	// key is CacheItem.Key, value is CacheItem
 	items map[interface{}]*CacheItem
 
-	// 定时
-	cleanupTimer    *time.Timer
-	cleanupInterval time.Duration
+	// 过期检查定时器
+	expirationCheckTimer *time.Timer
+	expireDuration       time.Duration
 
 	// 添加item的回调函数
 	addedCallBack func(item *CacheItem)
@@ -43,9 +45,25 @@ func (table *CacheTable) Add(key interface{}, value interface{}, lifeSpan time.D
 	item := NewCacheItem(key, value, lifeSpan)
 
 	table.Lock()
-	table.addItem(item)
+	table.items[key] = item
+	addedCallBack := table.addedCallBack
+	expireDuration := table.expireDuration
+	table.Unlock()
+
+	if addedCallBack != nil {
+		addedCallBack(item)
+	}
+
+	if lifeSpan > 0 && (0 == expireDuration || lifeSpan < expireDuration) {
+		table.expirationCheck()
+	}
 
 	return item
+}
+
+// 未查找到添加
+func (table *CacheTable) AddIfNotFound(key interface{}, value interface{}, liftSpan time.Duration) *CacheItem {
+	//TODO
 }
 
 // 获取值
@@ -62,19 +80,49 @@ func (table *CacheTable) Value(key interface{}) (*CacheItem, error) {
 	return nil, ErrKeyNotFound
 }
 
-// 调用addItem方法，必须先将table锁住，运行回调函数时解锁
-func (table *CacheTable) addItem(item *CacheItem) {
-	table.items[item.key] = item
-	expireDuration := table.cleanupInterval
-	addedCallBack := table.addedCallBack
-	table.Unlock()
+func (table *CacheTable) Delete(key interface{}) {
 
-	// 回调函数调用
-	if addedCallBack != nil {
-		addedCallBack(item)
+}
+
+// 设置定时机制，过期检查
+// 遍历所有的item集合，获取到最迫切smallExpireDuration; 设置expireDuration后检查的Timer
+func (table *CacheTable) expirationCheck() {
+	table.Lock()
+	defer table.Unlock()
+
+	// 1. 先关闭原来的
+	if table.expirationCheckTimer != nil {
+		table.expirationCheckTimer.Stop()
 	}
 
-	if item.lifeSpan > 0 && (expireDuration == 0 || item.lifeSpan < expireDuration) {
-		// TODO 补充过期检查
+	// 2. 记录最小的过期检查周期
+	smallExpireDuration := 0 * time.Second
+	now := time.Now()
+	for key, item := range table.items {
+		item.RLock()
+		liftSpan := item.lifeSpan
+		lastVisitedTime := item.lastVisitedTime
+		item.RUnlock()
+
+		if liftSpan == 0 {
+			continue
+		}
+		if now.Sub(lastVisitedTime) > liftSpan {
+			// 过期了
+			table.Delete(key)
+		} else {
+			if 0 == smallExpireDuration || liftSpan-now.Sub(lastVisitedTime) < smallExpireDuration {
+				smallExpireDuration = liftSpan - now.Sub(lastVisitedTime)
+			}
+		}
+	}
+
+	// 3. 设置定时器
+	table.expireDuration = smallExpireDuration
+	if smallExpireDuration > 0 {
+		table.expirationCheckTimer = time.AfterFunc(smallExpireDuration, func() {
+			go table.expirationCheck()
+		})
+		fmt.Printf("expiration check after %s, table name %s", smallExpireDuration, table.name)
 	}
 }

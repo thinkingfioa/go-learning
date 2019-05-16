@@ -18,8 +18,9 @@ func Cache(tablename string) *CacheTable {
 		table, exist = concurrentcache[tablename]
 		if !exist {
 			table = &CacheTable{
-				name:  tablename,
-				items: make(map[interface{}]*CacheItem),
+				name:           tablename,
+				items:          make(map[interface{}]*CacheItem),
+				expireDuration: 0,
 			}
 			concurrentcache[tablename] = table
 		}
