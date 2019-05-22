@@ -3,7 +3,6 @@ package concurrentcache
 import (
 	"fmt"
 	"sync"
-	"text/tabwriter"
 	"time"
 )
 
@@ -61,9 +60,25 @@ func (table *CacheTable) Add(key interface{}, value interface{}, lifeSpan time.D
 	return item
 }
 
-// 未查找到添加
-func (table *CacheTable) AddIfNotFound(key interface{}, value interface{}, liftSpan time.Duration) *CacheItem {
-	//TODO
+// 判断是否存在key
+func(table * CacheTable) containsKey(key interface{}) bool {
+	table.Lock()
+	defer table.Lock()
+	_, ok := table.items[key]
+
+	return ok
+}
+
+// 未查找到Key，则添加
+func (table *CacheTable) AddIfNotFound(key interface{}, value interface{}, liftSpan time.Duration) bool {
+	table.Lock()
+	defer table.Unlock()
+	if _, ok := table.items[key]; ok {
+		return false
+	}
+
+	table.Add(key, value, liftSpan)
+	return true
 }
 
 // 获取值
@@ -80,8 +95,10 @@ func (table *CacheTable) Value(key interface{}) (*CacheItem, error) {
 	return nil, ErrKeyNotFound
 }
 
-func (table *CacheTable) Delete(key interface{}) {
-
+func (table *CacheTable) Delete(key interface{}) *CacheItem, error {
+	if !table.containsKey(key) {
+		return nil, ErrKeyNotFound
+	}
 }
 
 // 设置定时机制，过期检查
