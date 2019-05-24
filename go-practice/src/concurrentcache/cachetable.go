@@ -47,6 +47,20 @@ func (table *CacheTable) Count() int {
 	return len(table.items)
 }
 
+// 清空
+func (table *CacheTable) Clear() {
+	table.Lock()
+	defer table.Lock()
+
+	fmt.Println("clear cache")
+	table.items = make(map[interface{}]*CacheItem)
+	table.expireDuration = 0
+
+	if table.expirationCheckTimer != nil {
+		table.expirationCheckTimer.Stop()
+	}
+}
+
 // 添加缓存
 func (table *CacheTable) Add(key interface{}, value interface{}, lifeSpan time.Duration) *CacheItem {
 	item := NewCacheItem(key, value, lifeSpan)
