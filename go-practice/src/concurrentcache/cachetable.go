@@ -39,6 +39,14 @@ func (table *CacheTable) SetDeletedCallBack(f func(item *CacheItem)) {
 	table.deletedCallBack = f
 }
 
+// 数目
+func (table *CacheTable) Count() int {
+	table.RLock()
+	defer table.RUnlock()
+
+	return len(table.items)
+}
+
 // 添加缓存
 func (table *CacheTable) Add(key interface{}, value interface{}, lifeSpan time.Duration) *CacheItem {
 	item := NewCacheItem(key, value, lifeSpan)
@@ -61,7 +69,7 @@ func (table *CacheTable) Add(key interface{}, value interface{}, lifeSpan time.D
 }
 
 // 判断是否存在key
-func(table * CacheTable) containsKey(key interface{}) bool {
+func (table *CacheTable) containsKey(key interface{}) bool {
 	table.Lock()
 	defer table.Lock()
 	_, ok := table.items[key]
@@ -95,10 +103,20 @@ func (table *CacheTable) Value(key interface{}) (*CacheItem, error) {
 	return nil, ErrKeyNotFound
 }
 
-func (table *CacheTable) Delete(key interface{}) *CacheItem, error {
+func (table *CacheTable) Delete(key interface{}) (*CacheItem, error) {
 	if !table.containsKey(key) {
 		return nil, ErrKeyNotFound
 	}
+	table.Lock()
+	value := table.items[key]
+	deleteCallBack := table.deletedCallBack
+	defer table.Unlock()
+
+	if deleteCallBack != nil {
+		deleteCallBack(value)
+	}
+	delete(table.items, key)
+	return value, nil
 }
 
 // 设置定时机制，过期检查
