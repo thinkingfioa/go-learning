@@ -53,19 +53,6 @@ func (item *CacheItem) Value() interface{} {
 	return item.value
 }
 
-func (item *CacheItem) LifeSpan() time.Duration {
-	// 不可变
-	return item.lifeSpan
-}
-
-func (item *CacheItem) CreatedTime() time.Time {
-	return item.createdTime
-}
-
-func (item *CacheItem) VisitedTime() time.Time {
-	return item.VisitedTime()
-}
-
 func (item *CacheItem) VisitedCount() int64 {
 	return item.visitedCount
 }

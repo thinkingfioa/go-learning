@@ -3,25 +3,26 @@ package concurrentcache
 import "sync"
 
 var (
-	concurrentcache = make(map[string]*CacheTable)
+	concurrentCache = make(map[string]*CacheTable)
 	mutex           sync.RWMutex
 )
 
-func Cache(tablename string) *CacheTable {
+func Cache(tableName string) *CacheTable {
 	mutex.RLock()
-	table, exist := concurrentcache[tablename]
+	table, exist := concurrentCache[tableName]
 	mutex.RUnlock()
 
 	if !exist {
 		mutex.Lock()
 		// double check
-		table, exist = concurrentcache[tablename]
+		table, exist = concurrentCache[tableName]
 		if !exist {
 			table = &CacheTable{
-				name:  tablename,
-				items: make(map[interface{}]*CacheItem),
+				name:           tableName,
+				items:          make(map[interface{}]*CacheItem),
+				expireDuration: 0,
 			}
-			concurrentcache[tablename] = table
+			concurrentCache[tableName] = table
 		}
 		mutex.Unlock()
 	}
