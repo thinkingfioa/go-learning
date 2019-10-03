@@ -11,7 +11,6 @@ func spiralOrder(matrix [][]int) []int {
 	result := make([]int, 0)
 	min := minInt(row, column)
 	for i := 0; i < (min+1)/2; i++ {
-		fmt.Printf("i=%d\n", i)
 		leftToRight(matrix, i, i, column-1-i, &result)
 		rightToDown(matrix, column-1-i, i+1, row-1-i, &result)
 		if i != row-1-i {
