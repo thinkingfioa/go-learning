@@ -1,12 +1,24 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/PuerkitoBio/goquery"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
+)
+
+const (
+	PAGE int = 40
+)
+
+var (
+	xici string = "http://www.xicidaili.com/wn/"
 )
 
 // random num from [begin, end)
@@ -35,7 +47,7 @@ func chooseUserAgent() string {
 
 // Get获取响应
 func doRequest(urls string, ip string) (*http.Response, error) {
-	req, _ := http.NewRequest("GET", "http://baidu.com", nil)
+	req, _ := http.NewRequest("GET", urls, nil)
 	req.Header.Set("User-Agent", chooseUserAgent())
 	req.Header.Set("Connection", "keep-alive")
 
@@ -78,6 +90,48 @@ func printResp(resp *http.Response) {
 	body, _ := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(body))
 	fmt.Println(resp.StatusCode)
+}
+
+func getIp(ip string) {
+	var count int
+
+	for i := 1; i <= PAGE; i++ {
+
+		response, _ := doRequest(xici+strconv.Itoa(i), ip)
+
+		if response.StatusCode == 200 {
+			dom, err := goquery.NewDocumentFromResponse(response)
+			if err != nil {
+				log.Fatalf("失败原因", response.StatusCode)
+			}
+			dom.Find("#ip_list tbody tr").Each(func(i int, context *goquery.Selection) {
+				ipInfo := make(map[string][]string)
+				//地址
+				ip := context.Find("td").Eq(1).Text()
+				//端口
+				port := context.Find("td").Eq(2).Text()
+				//地址
+				address := context.Find("td").Eq(3).Find("a").Text()
+				//匿名
+				anonymous := context.Find("td").Eq(4).Text()
+				//协议
+				protocol := context.Find("td").Eq(5).Text()
+				//存活时间
+				survivalTime := context.Find("td").Eq(8).Text()
+				//验证时间
+				checkTime := context.Find("td").Eq(9).Text()
+				ipInfo[ip] = append(ipInfo[ip], ip, port, address, anonymous, protocol, survivalTime, checkTime)
+				fmt.Println(ipInfo)
+				hBody, _ := json.Marshal(ipInfo[ip])
+
+				//存入redis
+				//saveRedis(ip+":"+port, string(hBody))
+				fmt.Println(ipInfo)
+				count++
+			})
+		}
+	}
+
 }
 
 func main() {
